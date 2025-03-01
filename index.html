@@ -1,42 +1,240 @@
 <!DOCTYPE html>
 <html>
 <head>
-   <meta charset="utf-8" />
-   <script src="https://cdn.jsdelivr.net/npm/p5@1.2.0/lib/p5.min.js"></script>
-   <script src="https://unpkg.com/ml5@0.6.0/dist/ml5.min.js"></script>
-   <style>
-     /* iframeとcanvasを含むコンテナのスタイル */
-     #map-container {
-       position: relative;
-       width: 560px;
-       height: 315px;
-     }
-     /* iframeのスタイル（下層に配置） */
-     #map-container iframe {
-       position: absolute;
-       top: 0;
-       left: 0;
-       z-index: 1;
-     }
-     /* canvasのスタイル（上層に配置） */
-     #map-container canvas {
-       position: absolute;
-       top: 0;
-       left: 0;
-       z-index: 2;
-       /* 必要であればマウスイベントを透過 */
-       /* pointer-events: none; */
-     }
-   </style>
+    <title>YouTube Sync</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.2.0/lib/p5.min.js"></script>
+    <style>
+        .flexbox {
+            display: flex; /* Flexboxレイアウトを使用 */
+        }
+        #map-tools-container {
+            display: flex;
+            flex-direction: column;
+        }
+        #map-container {
+            position: relative;
+            width: 800px;
+            height: 800px;
+            overflow: hidden; /* はみ出した部分を隠す */
+        }
+        #map-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            /* 必要であればマウスイベントを透過 */
+            /* pointer-events: none; */
+        }
+        #video-container {
+            position: relative;
+            width: 896px;
+            height: 504px;
+        }
+    </style>
 </head>
-<body style="background-color: cadetblue;">
-   <h1>Valorant Overlay</h1>
-   <div id="map-container">
-       <iframe width="560" height="315" src="https://www.youtube.com/embed/SpQ4tFJDa24?si=9jVbho_ry0gsnYZG" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-   </div>
-   <div id="video-container">
-        <iframe width="560" height="315" src="https://www.youtube.com/embed/SpQ4tFJDa24?si=9jVbho_ry0gsnYZG" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-   </div>
-   <script src="sketch.js"></script>
+<body>
+    <h1>Valorant Overlay</h1>
+    <div class="flexbox">
+        <div id="map-container">
+            <div id="player2"></div>
+        </div>
+        <div id="map-tools-container">
+            <button id="clear-button">クリア</button>
+            <select id="color-select">
+                <option value="#000000">黒</option>
+                <option value="#FF0000">赤</option>
+                <option value="#0000FF">青</option>
+                <option value="#00FF00">緑</option>
+                <option value="#FFFF00">黄</option>
+                <option value="#800080">紫</option>
+                <option value="#00FFFF">水色</option>
+                <option value="#FFA500">オレンジ</option>
+                <option value="#FFC0CB">ピンク</option>
+                <option value="#8B4513">茶</option>
+            </select>
+        </div>
+        <!-- <input type="text" id="text_input" value="">     -->
+        <div id="video-container">
+            <div id="player1"></div>
+        </div>
+    </div>
+    <!-- <script src="sketch.js"></script> -->
+    <script>
+        // YouTube IFrame Player APIのロード
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        var player1, player2;
+        let videoid = prompt("YouTubeのビデオIDを入力してください:", "SpQ4tFJDa24"); // 初期値を設定
+        let line_color = 255;
+        let colorSelect;
+        function setup() {
+            // canvasサイズをiframeと同じサイズに設定
+            const cnv = createCanvas(800, 800);
+           
+            // 親要素にvideo-containerを指定
+            cnv.parent('map-container');
+            clearButton = document.getElementById('clear-button'); //ボタンの要素を取得
+            clearButton.onclick = clearCanvas; //ボタンクリックの関数を指定
+            // カラーピッカーの取得
+            colorSelect = document.getElementById('color-select');
+            colorSelect.addEventListener('change', updateColor);
+            
+            document.addEventListener('keydown', function(event) {
+                // スペースキーで再生/一時停止
+                if (event.code === 'Space') {
+                    if (player1.getPlayerState() === YT.PlayerState.PLAYING) {
+                        player1.pauseVideo();
+                        player2.pauseVideo();
+                    } else {
+                        player1.playVideo();
+                        player2.playVideo();
+                    }
+                }            
+                if (event.code === 'ArrowLeft') {
+                    const currentTime = player1.getCurrentTime();
+                    player1.seekTo(currentTime - 5);
+                    player2.seekTo(currentTime - 5);
+                }
+                if (event.code === 'ArrowRight') {
+                    const currentTime = player1.getCurrentTime();
+                    player1.seekTo(currentTime + 5);
+                    player2.seekTo(currentTime + 5);
+                }
+            });
+        }
+
+        // ビデオIDが入力されなかった場合の処理
+        if (videoid === null || videoid === "") {
+            videoid = "SpQ4tFJDa24"; // デフォルトのビデオIDを設定
+        }
+
+        // APIの準備完了時に呼ばれる関数
+        function onYouTubeIframeAPIReady() {
+            player1 = new YT.Player('player1', {
+                height: '504',
+                width: '896',
+                videoId: videoid, // 動画ID1
+                playerVars: {
+                    'playsinline': 1,
+                    'controls': 1 // コントロールを表示
+                },
+                events: {
+                    'onReady': function(event) {
+                        onPlayerReady(event, 1);
+                        // シークバーの作成
+                        const seekBar = document.createElement('input');
+                        seekBar.type = 'range';
+                        seekBar.min = 0;
+                        seekBar.max = event.target.getDuration();
+                        seekBar.value = 0;
+                        seekBar.style.width = '100%';
+                        document.getElementById('video-container').appendChild(seekBar);
+
+                        // シークバーの値が変更されたときの処理
+                        seekBar.addEventListener('input', function() {
+                            const time = seekBar.value;
+                            player1.seekTo(time);
+                            player2.seekTo(time);
+                        });
+
+                        // 動画再生中にシークバーを更新
+                        setInterval(function() {
+                            if (player1.getPlayerState() === YT.PlayerState.PLAYING) {
+                                seekBar.value = player1.getCurrentTime();
+                            }
+                        }, 100);
+                    },
+                    'onStateChange': function(event) {
+                        onPlayerStateChange(event, 1);
+                    }
+                }
+            });
+            // MAP
+            player2 = new YT.Player('player2', {
+                height: '1800',
+                width: '3200',
+                videoId: videoid, // 動画ID2 (同じ動画IDにしています)
+                playerVars: {
+                    'playsinline': 1
+                },
+                events: {
+                    'onReady': function(event) {
+                        onPlayerReady(event, 2);
+                        event.target.mute();
+                    },
+                    'onStateChange': function(event) {
+                        onPlayerStateChange(event, 2);
+                    }
+                }
+            });
+        }
+        
+        // 動画再生中にシークバーを更新
+        setInterval(function() {
+            if (player1.getPlayerState() === YT.PlayerState.PLAYING) {
+                seekBar.value = player1.getCurrentTime();
+            }
+        }, 1000);
+
+        // プレーヤーの準備完了時に呼ばれる関数
+        function onPlayerReady(event, playerNumber) {
+            // 必要に応じて初期設定
+            console.log("Player " + playerNumber + " is ready");
+        }
+
+        // プレーヤーの状態が変化したときに呼ばれる関数
+        // function onPlayerStateChange(event, playerNumber) {
+        //     // 状態を同期させる
+        //     if (playerNumber === 1) {
+        //         syncPlayer(event.data, player2);
+        //     }
+        //     // player2 から player1 への同期は行わない
+        //     // else if (playerNumber === 2) {
+        //     //     syncPlayer(event.data, player1);
+        //     // }
+        // }
+
+        // プレーヤーを同期させる関数
+        function syncPlayer(state, targetPlayer) {
+            switch (state) {
+                case YT.PlayerState.PLAYING:
+                    targetPlayer.playVideo();
+                    // 再生時間を同期
+                    targetPlayer.seekTo(player1.getCurrentTime());
+                    break;
+                case YT.PlayerState.PAUSED:
+                    targetPlayer.pauseVideo();
+                    break;
+                case YT.PlayerState.ENDED:
+                    targetPlayer.stopVideo();
+                    break;
+                case YT.PlayerState.BUFFERING:
+                    // バッファリング中の場合、シークで同期
+                    targetPlayer.seekTo(player1.getCurrentTime());
+                    break;
+                // 他の状態も必要に応じて追加
+            }
+        }
+
+        
+        function updateColor() {
+            line_color = color(colorSelect.value());
+        }
+
+        function draw() {
+            if (mouseIsPressed) {
+                strokeWeight(9);
+                stroke(line_color);
+                line(mouseX, mouseY, pmouseX, pmouseY);
+            }
+        }
+
+        function clearCanvas() {
+            clear();
+        }
+    </script>
 </body>
 </html>
