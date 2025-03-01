@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Div Region Copy</title>
+  <style>
+    #sourceDiv {
+      width: 300px;
+      height: 200px;
+      background-color: lightblue;
+      position: relative;
+    }
+    #copyCanvas {
+      border: 1px solid black;
+    }
+  </style>
+</head>
+<body>
+  <h1>Div Region Copy</h1>
+  <div id="sourceDiv">
+    <p>This is the source div.</p>
+    <iframe width="560" height="315" src="https://www.youtube.com/embed/SpQ4tFJDa24?si=9jVbho_ry0gsnYZG" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  </div>
+  <canvas id="copyCanvas" width="1000" height="1000"></canvas>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', function() {
+      const sourceDiv = document.getElementById('sourceDiv');
+      const copyCanvas = document.getElementById('copyCanvas');
+      const ctx = copyCanvas.getContext('2d');
+
+      // コピー元の領域 (x, y, width, height)
+      const sourceX = 560/2;
+      const sourceY = 315/2;
+      const sourceWidth = 560;
+      const sourceHeight = 315;
+
+      // コピー先のキャンバスのサイズ
+      copyCanvas.width = sourceWidth;
+      copyCanvas.height = sourceHeight;
+
+      // div要素を画像としてcanvasに描画
+      html2canvas(sourceDiv, {
+        x: sourceX,
+        y: sourceY,
+        width: sourceWidth,
+        height: sourceHeight,
+        canvas: copyCanvas,
+        onrendered: function(canvas) {
+          // canvasに描画された画像データを取得して、別のcanvasに描画
+          const imgData = canvas.toDataURL();
+          const img = new Image();
+          img.onload = function() {
+            ctx.drawImage(img, 0, 0, sourceWidth, sourceHeight);
+          }
+          img.src = imgData;
+        }
+      });
+    });
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.5.0-beta4/html2canvas.min.js"></script>
+</body>
+</html>
